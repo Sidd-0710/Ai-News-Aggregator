@@ -1,0 +1,94 @@
+{
+  "articles": [
+    {
+      "title": "Breakthrough in Quantum Computing: Scientists Achieve New Milestone",
+      "description": "Researchers at leading tech institutions have announced a significant breakthrough in quantum computing, demonstrating a system that can perform complex calculations exponentially faster than classical computers. This achievement marks a major step forward in solving real-world problems in drug discovery, materials science, and cryptography.",
+      "url": "https://example.com/quantum-computing",
+      "urlToImage": "https://via.placeholder.com/400x300?text=Quantum+Computing",
+      "publishedAt": "2026-04-18T10:00:00Z",
+      "source": { "name": "Tech News Daily" },
+      "category": "Technology"
+    },
+    {
+      "title": "AI Revolution: New Language Model Outperforms Previous Records",
+      "description": "A new artificial intelligence language model has been released that demonstrates unprecedented performance in natural language understanding and generation. The model can now understand context across longer sequences and generate more coherent and contextually relevant responses than ever before.",
+      "url": "https://example.com/ai-model",
+      "urlToImage": "https://via.placeholder.com/400x300?text=AI+Model",
+      "publishedAt": "2026-04-18T09:30:00Z",
+      "source": { "name": "AI Research Hub" },
+      "category": "Technology"
+    },
+    {
+      "title": "Cybersecurity Alert: New Vulnerability Discovered in Popular Software",
+      "description": "Security researchers have identified a critical vulnerability in widely-used enterprise software that could potentially allow unauthorized access to sensitive data. The software vendor has released an emergency patch and is urging all users to update immediately to protect their systems.",
+      "url": "https://example.com/security-alert",
+      "urlToImage": "https://via.placeholder.com/400x300?text=Cybersecurity",
+      "publishedAt": "2026-04-18T09:00:00Z",
+      "source": { "name": "Security Weekly" },
+      "category": "Technology"
+    },
+    {
+      "title": "Major Tech Company Announces Layoffs Amid Market Slowdown",
+      "description": "One of the world's largest technology companies has announced significant workforce reductions as part of a strategic restructuring. The company cited changing market conditions and the need to focus resources on core business areas as reasons for the decision.",
+      "url": "https://example.com/tech-layoffs",
+      "urlToImage": "https://via.placeholder.com/400x300?text=Business+News",
+      "publishedAt": "2026-04-17T15:30:00Z",
+      "source": { "name": "Business Today" },
+      "category": "Business"
+    },
+    {
+      "title": "Startup Raises Record Funding for Climate Tech Innovation",
+      "description": "An innovative climate technology startup has secured an unprecedented investment round to accelerate development of sustainable energy solutions. The funding will be used to expand research facilities and bring their carbon-neutral technology to market faster.",
+      "url": "https://example.com/climate-startup",
+      "urlToImage": "https://via.placeholder.com/400x300?text=Startup+Funding",
+      "publishedAt": "2026-04-17T14:00:00Z",
+      "source": { "name": "Startup News" },
+      "category": "Business"
+    },
+    {
+      "title": "Scientists Discover Potential New Treatment for Common Disease",
+      "description": "Medical researchers have announced the discovery of a promising new treatment approach for a condition that affects millions of people worldwide. Early clinical trials show remarkable results, offering hope for improved patient outcomes and quality of life.",
+      "url": "https://example.com/medical-breakthrough",
+      "urlToImage": "https://via.placeholder.com/400x300?text=Medical+Science",
+      "publishedAt": "2026-04-17T12:00:00Z",
+      "source": { "name": "Health Science Today" },
+      "category": "Health"
+    },
+    {
+      "title": "Space Exploration: New Mission Launches to Study Deep Space",
+      "description": "A new space mission has successfully launched to explore uncharted regions of outer space. The mission will study cosmic phenomena, search for signs of life, and gather data that could revolutionize our understanding of the universe.",
+      "url": "https://example.com/space-mission",
+      "urlToImage": "https://via.placeholder.com/400x300?text=Space+Exploration",
+      "publishedAt": "2026-04-17T10:30:00Z",
+      "source": { "name": "Space News Network" },
+      "category": "Science"
+    },
+    {
+      "title": "Global Climate Summit Reaches Historic Agreement",
+      "description": "Leaders from nations around the world have reached a groundbreaking agreement on climate action targets. The accord commits participating countries to ambitious emission reduction goals and sets up funding mechanisms to support green technology transition.",
+      "url": "https://example.com/climate-summit",
+      "urlToImage": "https://via.placeholder.com/400x300?text=Climate+Agreement",
+      "publishedAt": "2026-04-16T16:00:00Z",
+      "source": { "name": "World News" },
+      "category": "World"
+    },
+    {
+      "title": "International Trade Deal Signed Between Major Economies",
+      "description": "Following months of negotiations, major economic powers have signed a comprehensive trade agreement that is expected to boost economic growth and create new opportunities for businesses. Economists predict significant positive impacts on global markets.",
+      "url": "https://example.com/trade-deal",
+      "urlToImage": "https://via.placeholder.com/400x300?text=Trade+Agreement",
+      "publishedAt": "2026-04-16T14:30:00Z",
+      "source": { "name": "International Business" },
+      "category": "World"
+    },
+    {
+      "title": "Tech Industry Standards Board Announces New Data Privacy Framework",
+      "description": "A coalition of technology companies and privacy advocates has unveiled a new comprehensive data privacy framework aimed at protecting user information while enabling innovation. The framework is expected to become the industry standard within the next year.",
+      "url": "https://example.com/privacy-framework",
+      "urlToImage": "https://via.placeholder.com/400x300?text=Data+Privacy",
+      "publishedAt": "2026-04-16T11:00:00Z",
+      "source": { "name": "Tech Standards Weekly" },
+      "category": "Technology"
+    }
+  ]
+}
