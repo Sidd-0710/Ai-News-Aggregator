@@ -32,7 +32,15 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const parser = new Parser();
+const parser = new Parser({
+  customFields: {
+    item: [
+      ['media:content', 'media:content'],
+      ['media:thumbnail', 'media:thumbnail'],
+      ['media:group', 'media:group'],
+    ],
+  },
+});
 
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434/api/generate';
 const SUMMARIZE_MODEL = process.env.SUMMARIZE_MODEL || 'mistral';
@@ -48,10 +56,53 @@ const FEED_USER_AGENT = 'AI-News-Aggregator/1.0 (+https://localhost)';
 const OG_IMAGE_TIMEOUT_MS = 5000;
 const OG_IMAGE_CONCURRENCY = 3;
 const OG_IMAGE_CACHE_TTL_MS = 10 * 60 * 1000;
+const DEFAULT_SOURCE_SCORE = 60;
+const SOURCE_CREDIBILITY = [
+  { domain: 'nasa.gov', score: 90 },
+  { domain: 'bbc.co.uk', score: 85 },
+  { domain: 'bbc.com', score: 85 },
+  { domain: 'bloomberg.com', score: 85 },
+  { domain: 'theguardian.com', score: 80 },
+  { domain: 'arstechnica.com', score: 80 },
+  { domain: 'wired.com', score: 80 },
+  { domain: 'smithsonianmag.com', score: 80 },
+  { domain: 'theverge.com', score: 75 },
+  { domain: 'thehindu.com', score: 75 },
+  { domain: 'mashable.com', score: 70 },
+  { domain: 'gizmodo.com', score: 70 },
+  { domain: 'indianexpress.com', score: 70 },
+  { domain: 'espncricinfo.com', score: 70 },
+  { domain: 'skysports.com', score: 70 },
+  { domain: 'kotaku.com', score: 65 },
+  { domain: 'timesofindia.indiatimes.com', score: 65 },
+  { domain: 'indiatimes.com', score: 65 },
+  { domain: 'thebridge.in', score: 60 },
+  { domain: 'sportskeeda.com', score: 55 },
+];
 
 let cachedArticlePool = [];
 let cachedAt = 0;
 const ogImageCache = new Map();
+const OG_IMAGE_CACHE_MAX = 500;
+const summaryCache = new Map();
+const translationCache = new Map();
+const AI_CACHE_MAX = 200;
+
+function getFromAiCache(cache, key) {
+  if (!cache.has(key)) return null;
+  const value = cache.get(key);
+  // Refresh recency so frequently used entries survive eviction
+  cache.delete(key);
+  cache.set(key, value);
+  return value;
+}
+
+function setInAiCache(cache, key, value) {
+  if (cache.size >= AI_CACHE_MAX) {
+    cache.delete(cache.keys().next().value);
+  }
+  cache.set(key, value);
+}
 
 axiosRetry(axios, {
   retries: 2,
@@ -84,6 +135,22 @@ const RSS_FEEDS = [
 
   // Health & Medical
   { url: 'https://feeds.bbci.co.uk/news/health_and_science/rss.xml', category: 'Health' },
+
+  // India News
+  { url: 'https://www.thehindu.com/news/national/feeder/default.rss', category: 'India' },
+  { url: 'https://indianexpress.com/section/india/feed/', category: 'India' },
+  { url: 'https://timesofindia.indiatimes.com/rssfeeds/-2128936835.cms', category: 'India' },
+
+  // Sports
+  { url: 'https://feeds.bbci.co.uk/sport/rss.xml', category: 'Sports' },
+  { url: 'https://feeds.bbci.co.uk/sport/football/rss.xml', category: 'Sports' },
+  { url: 'https://feeds.bbci.co.uk/sport/hockey/rss.xml', category: 'Sports' },
+  { url: 'https://feeds.bbci.co.uk/sport/badminton/rss.xml', category: 'Sports' },
+  { url: 'https://feeds.bbci.co.uk/sport/cricket/rss.xml', category: 'Sports' },
+  { url: 'https://www.skysports.com/rss/12040', category: 'Sports' },
+  { url: 'https://www.espncricinfo.com/rss/content/story/feeds/0.xml', category: 'Sports' },
+  { url: 'https://www.sportskeeda.com/feed', category: 'Sports' },
+  { url: 'https://www.thebridge.in/feed/', category: 'Sports' },
 
   // World News
   { url: 'https://feeds.bbci.co.uk/news/world/rss.xml', category: 'World' },
@@ -154,6 +221,41 @@ function isHttpUrl(url) {
   }
 }
 
+function getHostname(url) {
+  if (!url || typeof url !== 'string') return '';
+  try {
+    return new URL(url).hostname.toLowerCase().replace(/^www\./, '');
+  } catch {
+    return '';
+  }
+}
+
+function getSourceScore(hostname) {
+  if (!hostname) return DEFAULT_SOURCE_SCORE;
+  const normalized = hostname.replace(/^feeds\./, '');
+  for (const source of SOURCE_CREDIBILITY) {
+    if (normalized === source.domain || normalized.endsWith(`.${source.domain}`)) {
+      return source.score;
+    }
+  }
+  return DEFAULT_SOURCE_SCORE;
+}
+
+function getRecencyBoost(pubDate) {
+  if (!pubDate) return 0;
+  const timestamp = Date.parse(pubDate);
+  if (Number.isNaN(timestamp)) return 0;
+  const hoursAgo = (Date.now() - timestamp) / (1000 * 60 * 60);
+  if (hoursAgo <= 24) return 5;
+  if (hoursAgo <= 72) return 3;
+  if (hoursAgo <= 168) return 1;
+  return 0;
+}
+
+function clampScore(score) {
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
+
 function getMetaContent(html, key) {
   if (!html || typeof html !== 'string') return null;
   const metaTags = html.match(/<meta[^>]+>/gi) || [];
@@ -195,6 +297,9 @@ function getCachedOgImage(link) {
 }
 
 function setCachedOgImage(link, url) {
+  if (ogImageCache.size >= OG_IMAGE_CACHE_MAX) {
+    ogImageCache.delete(ogImageCache.keys().next().value);
+  }
   ogImageCache.set(link, { url, timestamp: Date.now() });
 }
 
@@ -229,7 +334,7 @@ async function fetchOpenGraphImage(link) {
 function getFallbackImage({ category, source }) {
   const label = (category || source || 'News').trim().slice(0, 28);
   const encoded = encodeURIComponent(label);
-  return `https://placehold.co/600x400/0f172a/e2e8f0?text=${encoded}`;
+  return `https://placehold.co/600x400/141311/f7f2e7?text=${encoded}`;
 }
 
 function isTruthy(value) {
@@ -237,7 +342,12 @@ function isTruthy(value) {
 }
 
 function shuffleArray(items) {
-  return items.sort(() => Math.random() - 0.5);
+  // Fisher-Yates: sort(() => Math.random() - 0.5) produces a biased shuffle
+  for (let i = items.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [items[i], items[j]] = [items[j], items[i]];
+  }
+  return items;
 }
 
 function buildSelectionFromPool(pool, max = MAX_ARTICLES) {
@@ -254,6 +364,31 @@ function buildSelectionFromPool(pool, max = MAX_ARTICLES) {
 
 function normalizeTitle(title) {
   return (title || '').trim().toLowerCase();
+}
+
+function computeCredibilityScore(article, corroborationCount) {
+  const host = getHostname(article.link) || article.sourceHost || '';
+  const base = getSourceScore(host);
+  const corroborationBoost = Math.min(15, corroborationCount * 5);
+  const recencyBoost = getRecencyBoost(article.pubDate);
+  return clampScore(base + corroborationBoost + recencyBoost);
+}
+
+function attachCredibilityScores(articles) {
+  const titleCounts = new Map();
+  articles.forEach(article => {
+    const key = normalizeTitle(article.title);
+    if (!key) return;
+    titleCounts.set(key, (titleCounts.get(key) || 0) + 1);
+  });
+
+  return articles.map(article => {
+    const key = normalizeTitle(article.title);
+    const corroborationCount = key ? Math.max(0, (titleCounts.get(key) || 1) - 1) : 0;
+    const credibilityScore = computeCredibilityScore(article, corroborationCount);
+    const { sourceHost, ...rest } = article;
+    return { ...rest, credibilityScore };
+  });
 }
 
 async function mapWithConcurrency(items, limit, mapper) {
@@ -303,6 +438,7 @@ async function fetchFeedArticles(feed) {
       description: cleanContent(item.content || item.contentSnippet || item.summary || 'No description'),
       link: item.link || '#',
       source: feedData.title || feedName || 'RSS Feed',
+      sourceHost: getHostname(feed.url),
       category: feed.category,
       pubDate: item.pubDate || new Date().toISOString(),
       image: getImageFromFeedItem(item),
@@ -338,6 +474,42 @@ async function fetchFeedArticles(feed) {
   }
 }
 
+// Turn a raw axios/Ollama error into a message that actually explains what to do,
+// and flag errors where retrying is pointless (they'll fail the same way every time).
+function describeOllamaError(error) {
+  if (error.code === 'ECONNREFUSED' || error.code === 'ECONNABORTED') {
+    return {
+      message: `Cannot reach Ollama at ${OLLAMA_URL}. Start Ollama ("ollama serve") and try again.`,
+      retryable: false,
+    };
+  }
+
+  const ollamaMessage = error.response?.data?.error;
+  if (typeof ollamaMessage === 'string') {
+    if (/more system memory/i.test(ollamaMessage)) {
+      let requestedModel = SUMMARIZE_MODEL;
+      try {
+        requestedModel = JSON.parse(error.config?.data)?.model || requestedModel;
+      } catch {
+        // fall back to default label above
+      }
+      return {
+        message: `Ollama can't load "${requestedModel}" — not enough free RAM. Close other apps or switch to a smaller model (e.g. "ollama pull qwen2.5:1.5b" and set SUMMARIZE_MODEL/TRANSLATE_MODEL in backend/.env).`,
+        retryable: false,
+      };
+    }
+    if (/not found/i.test(ollamaMessage)) {
+      return {
+        message: `${ollamaMessage} — pull it first with "ollama pull <model>", or fix SUMMARIZE_MODEL/TRANSLATE_MODEL in backend/.env.`,
+        retryable: false,
+      };
+    }
+    return { message: ollamaMessage, retryable: true };
+  }
+
+  return { message: error.message, retryable: true };
+}
+
 // Enhanced summarize function - RELIABLE 6 line summaries
 async function summarizeText(text, retries = 2) {
   try {
@@ -347,6 +519,12 @@ async function summarizeText(text, retries = 2) {
 
     // Reduce text size for faster processing
     const cleanText = text.trim().substring(0, SUMMARY_INPUT_LIMIT);
+
+    const cached = getFromAiCache(summaryCache, cleanText);
+    if (cached) {
+      console.log('⚡ Summary served from cache');
+      return cached;
+    }
 
     const prompt = `Summarize in exactly 6 lines:
 
@@ -368,15 +546,17 @@ Summary (6 lines):`;
       throw new Error('Summary too short');
     }
 
+    setInAiCache(summaryCache, cleanText, summary);
     console.log('✅ Summary received');
     return summary;
   } catch (error) {
-    console.error(`❌ Summarize error (${retries} retries left):`, error.message);
-    if (retries > 0) {
+    const { message, retryable } = describeOllamaError(error);
+    console.error(`❌ Summarize error (${retries} retries left, retryable=${retryable}):`, message);
+    if (retryable && retries > 0) {
       await new Promise(r => setTimeout(r, 2000));
       return summarizeText(text, retries - 1);
     }
-    throw error;
+    throw new Error(message);
   }
 }
 
@@ -387,6 +567,12 @@ async function translateToHindi(text, retries = 2) {
 
     // Shorten the text for faster translation
     const shortText = text.substring(0, 500);
+
+    const cached = getFromAiCache(translationCache, shortText);
+    if (cached) {
+      console.log('⚡ Translation served from cache');
+      return cached;
+    }
 
     const prompt = `हिंदी में अनुवाद करें:
 ${shortText}
@@ -407,11 +593,13 @@ ${shortText}
       throw new Error('Translation too short');
     }
 
+    setInAiCache(translationCache, shortText, translation);
     console.log('✅ Hindi translation received');
     return translation;
   } catch (error) {
-    console.error(`❌ Translation error (${retries} retries left):`, error.message);
-    if (retries > 0) {
+    const { message, retryable } = describeOllamaError(error);
+    console.error(`❌ Translation error (${retries} retries left, retryable=${retryable}):`, message);
+    if (retryable && retries > 0) {
       await new Promise(r => setTimeout(r, 2000));
       return translateToHindi(text, retries - 1);
     }
@@ -425,28 +613,43 @@ ${shortText}
 function getImageFromFeedItem(item) {
   let imageUrl = null;
 
+  const extractUrl = (mediaItem) => {
+    if (!mediaItem) return null;
+    if (typeof mediaItem === 'string') return mediaItem;
+    return mediaItem.url || mediaItem.href || mediaItem.$?.url || mediaItem.$?.href || mediaItem['@_url'] || null;
+  };
+
+  const extractMediaUrl = (mediaField) => {
+    if (!mediaField) return null;
+    if (Array.isArray(mediaField)) {
+      for (const entry of mediaField) {
+        const candidate = extractUrl(entry);
+        if (candidate) return candidate;
+      }
+      return null;
+    }
+    return extractUrl(mediaField);
+  };
+
   // Try media:content (most reliable)
-  if (item.media && item.media.content && Array.isArray(item.media.content)) {
-    imageUrl = item.media.content[0]?.url;
-    if (imageUrl) return imageUrl;
-  }
-  if (item.media && item.media.content && !Array.isArray(item.media.content)) {
-    imageUrl = item.media.content.url;
-    if (imageUrl) return imageUrl;
-  }
-  if (item['media:content']) {
-    const mediaContent = item['media:content'];
-    const mediaItem = Array.isArray(mediaContent) ? mediaContent[0] : mediaContent;
-    if (mediaItem?.url) return mediaItem.url;
-  }
+  imageUrl = extractMediaUrl(item.media?.content);
+  if (imageUrl) return imageUrl;
+
+  imageUrl = extractMediaUrl(item['media:content']);
+  if (imageUrl) return imageUrl;
+
+  imageUrl = extractMediaUrl(item['media:group']?.['media:content']);
+  if (imageUrl) return imageUrl;
 
   // Try media:thumbnail
-  if (item['media:thumbnail']) {
-    const thumb = Array.isArray(item['media:thumbnail'])
-      ? item['media:thumbnail'][0]?.url
-      : item['media:thumbnail']?.url;
-    if (thumb) return thumb;
-  }
+  imageUrl = extractMediaUrl(item.media?.thumbnail);
+  if (imageUrl) return imageUrl;
+
+  imageUrl = extractMediaUrl(item['media:thumbnail']);
+  if (imageUrl) return imageUrl;
+
+  imageUrl = extractMediaUrl(item['media:group']?.['media:thumbnail']);
+  if (imageUrl) return imageUrl;
 
   // Try image property
   if (item.image) {
@@ -501,7 +704,18 @@ function getImageFromFeedItem(item) {
 }
 
 // Fetch all news from RSS Feeds
+let inFlightFetch = null;
+
 async function fetchAllNews() {
+  // Share one in-flight fetch across concurrent requests
+  if (inFlightFetch) return inFlightFetch;
+  inFlightFetch = doFetchAllNews().finally(() => {
+    inFlightFetch = null;
+  });
+  return inFlightFetch;
+}
+
+async function doFetchAllNews() {
   const allArticles = [];
   const failedFeeds = [];
   const successFeeds = [];
@@ -544,10 +758,12 @@ async function fetchAllNews() {
   // Sort by newest first
   uniqueArticles.sort((a, b) => (Date.parse(b.pubDate) || 0) - (Date.parse(a.pubDate) || 0));
 
-  cachedArticlePool = uniqueArticles;
+  const scoredArticles = attachCredibilityScores(uniqueArticles);
+
+  cachedArticlePool = scoredArticles;
   cachedAt = Date.now();
 
-  const { selected, withImagesCount, withoutImagesCount } = buildSelectionFromPool(uniqueArticles);
+  const { selected, withImagesCount, withoutImagesCount } = buildSelectionFromPool(scoredArticles);
 
   console.log(`📊 Total unique articles: ${uniqueArticles.length}`);
   console.log(`📸 Articles WITH images: ${withImagesCount}`);
@@ -581,7 +797,7 @@ app.get('/api/news', async (req, res) => {
       console.log('⚠️  No articles from API, using mock data...');
       try {
         const mockData = JSON.parse(fs.readFileSync(path.join(__dirname, 'mock-news.json'), 'utf8'));
-        articles = mockData.articles;
+        articles = attachCredibilityScores(mockData.articles || []);
         console.log(`📦 Loaded ${articles.length} mock articles`);
       } catch (mockError) {
         console.error('Failed to load mock data:', mockError.message);
@@ -685,9 +901,21 @@ app.post('/api/translate', async (req, res) => {
   }
 });
 
-// Health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'Backend is running', ollama: 'http://localhost:11434' });
+// Health check - also verifies Ollama is reachable
+app.get('/api/health', async (req, res) => {
+  const ollamaBase = OLLAMA_URL.replace(/\/api\/.*$/, '');
+  let ollamaStatus = 'unreachable';
+  try {
+    await axios.get(`${ollamaBase}/api/tags`, { timeout: 3000 });
+    ollamaStatus = 'running';
+  } catch {
+    // Ollama not reachable; summaries/translations will fail until it is started
+  }
+  res.json({
+    status: 'Backend is running',
+    ollama: ollamaStatus,
+    ollamaUrl: ollamaBase,
+  });
 });
 
 app.get('/', (req, res) => {
@@ -697,7 +925,7 @@ app.get('/', (req, res) => {
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`✅ Backend running on http://localhost:${PORT}`);
-  console.log(`🤖 Ollama at http://localhost:11434`);
+  console.log(`🤖 Ollama at ${OLLAMA_URL}`);
   console.log(`📰 Configured to fetch up to ${MAX_ARTICLES} news articles`);
   console.log(`⚡ Feed fetch concurrency: ${FEED_CONCURRENCY} (cache TTL ${FEED_CACHE_TTL_MS / 1000}s)`);
   console.log(`✨ Summaries: 6-line format with Hindi translation`);

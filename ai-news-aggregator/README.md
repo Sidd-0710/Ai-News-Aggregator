@@ -1,204 +1,208 @@
-# 🤖 AI News Aggregator
+# 📡 Signal — AI News Aggregator
 
-A free, no-rate-limit AI News Aggregator that fetches news from RSS feeds, summarizes them using **Ollama** (local AI), and translates to **Hindi**. Built with React, Express, and Tailwind CSS.
+**Signal** pulls live articles from 29 RSS feeds across 8 categories, scores each one for source credibility, and summarizes any article into 6 lines using a **locally-run AI model** (Ollama) — with one-click Hindi translation and text-to-speech. No paid APIs, no rate limits, no data leaving your machine.
 
-**Perfect for college Gen AI projects!**
+<p align="center">
+  <img src="docs/screenshots/feed.png" alt="Signal — article feed" width="100%" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/summary-modal.png" alt="Signal — AI summary modal" width="100%" />
+</p>
+
+<p align="center">
+  <img alt="Node" src="https://img.shields.io/badge/node-%3E%3D18-339933?logo=node.js&logoColor=white" />
+  <img alt="React" src="https://img.shields.io/badge/frontend-React%2018-61DAFB?logo=react&logoColor=white" />
+  <img alt="Express" src="https://img.shields.io/badge/backend-Express-000000?logo=express&logoColor=white" />
+  <img alt="Ollama" src="https://img.shields.io/badge/AI-Ollama%20(local)-1a1a1a?logo=ollama&logoColor=white" />
+  <img alt="Tailwind" src="https://img.shields.io/badge/styling-Tailwind%20CSS-06B6D4?logo=tailwindcss&logoColor=white" />
+</p>
 
 ---
 
-## 📋 Prerequisites
+## Why
 
-Before starting, install these once:
+Most news apps either paywall you, rate-limit you, or bury the story under ads. Signal fetches straight from publisher RSS feeds (free, unlimited) and runs summarization/translation on a **local LLM via Ollama** — so there's no API key to manage, no per-request cost, and nothing sent to a third-party AI provider.
 
-1. **Node.js** (v16+) - [Download](https://nodejs.org/)
-2. **Ollama** (for AI) - [Download](https://ollama.ai/download/windows)
+## Features
 
----
+- **6-line AI summaries** — any article, condensed on demand by a local Ollama model
+- **Hindi translation** — one click, cached so repeat requests are instant
+- **Text-to-speech** — listen to summaries in English or Hindi (browser voices)
+- **Source credibility scoring** — each article gets a 0–100 score from source reputation, cross-outlet corroboration, and recency
+- **Compare sources** — find similar coverage of the same story from other outlets (title/description similarity, not just keyword match)
+- **Category filters + search** — Technology, Science, Business, Health, India, World, Entertainment, Sports
+- **Trending tab** — built from your own read/watch history (stored locally, never sent anywhere)
+- **Thumbnail pipeline** — pulls images from RSS media tags, falls back to Open Graph scraping, then a generated placeholder — never a broken image
+- **60-second article cache + in-flight request dedup** — a burst of page loads doesn't refetch 29 feeds 29 times
+- **Resilient by design** — per-feed failures don't take down the whole fetch; if every feed fails, the app serves bundled mock data instead of a blank screen
 
-## ⚡ Setup (First Time Only - 10 minutes)
+## Tech Stack
 
-### Step 1: Install Ollama & Download AI Model
+| Layer | Technology |
+|---|---|
+| Frontend | React 18, Tailwind CSS, Axios, lucide-react |
+| Backend | Node.js, Express, `rss-parser`, `axios-retry` |
+| AI | [Ollama](https://ollama.ai) running locally (any model you pull — no API key) |
+| News source | 29 public RSS feeds (BBC, The Guardian, Ars Technica, NASA, The Verge, Wired, The Hindu, ESPNcricinfo, and more) |
 
-1. Download & install **Ollama** from https://ollama.ai/download/windows
-2. Open **PowerShell** or **Command Prompt** and run:
-   ```bash
-   ollama pull mistral
-   ```
-   This downloads the AI model (~4GB). It will show: ✅ "success"
+## How it fits together
 
-3. Keep Ollama running in the background (it stays in system tray)
-
-### Step 2: Install Backend Dependencies
-
-```bash
-cd "C:\Users\Siddheshwar\OneDrive\Desktop\Ai news\ai-news-aggregator\backend"
-npm install
-copy .env.example .env
+```
+ 29 RSS feeds  ──▶  Express backend  ──▶  React frontend
+ (8 categories)     • dedupes by title       (search, filter, compare,
+                     • scores credibility      speak, read)
+                     • fetches OG images
+                     • 60s article cache
+                            │
+                            │  POST /api/summarize, /api/translate
+                            ▼
+                     Ollama (localhost:11434)
+                     any model you've pulled
 ```
 
-Put secrets/API keys only in `backend/.env` and never commit that file.
-
-### Step 3: Install Frontend Dependencies
-
-```bash
-cd "C:\Users\Siddheshwar\OneDrive\Desktop\Ai news\ai-news-aggregator\frontend"
-npm install
-```
-
 ---
 
-## 🚀 Running the App (Every Time)
+## Getting Started
 
-### Terminal 1: Start Backend
+### Prerequisites
+
+- **Node.js 18+** — [Download](https://nodejs.org/)
+- **Ollama** — [Download](https://ollama.ai/download)
+
+### 1. Install an Ollama model
 
 ```bash
-cd "C:\Users\Siddheshwar\OneDrive\Desktop\Ai news\ai-news-aggregator\backend"
+ollama pull qwen2.5:1.5b
+```
+
+Keep Ollama running in the background (`ollama serve`, or it auto-starts as a tray app on Windows/macOS).
+
+> **Which model should I pick?** See [Choosing a model](#choosing-a-model) below — it depends on how much free RAM your machine has, and picking a model that's too large is the #1 reason summaries fail.
+
+### 2. Backend
+
+```bash
+cd backend
+npm install
+copy .env.example .env      # macOS/Linux: cp .env.example .env
 npm start
 ```
 
-You'll see: ✅ `Backend running on http://localhost:5000`
-
-### Terminal 2: Start Frontend
+You should see `✅ Backend running on http://localhost:5000`. Sanity-check Ollama connectivity anytime with:
 
 ```bash
-cd "C:\Users\Siddheshwar\OneDrive\Desktop\Ai news\ai-news-aggregator\frontend"
+curl http://localhost:5000/api/health
+# {"status":"Backend is running","ollama":"running","ollamaUrl":"http://localhost:11434/api/generate"}
+```
+
+### 3. Frontend
+
+```bash
+cd frontend
+npm install
 npm start
 ```
 
-You'll see: ✅ `Compiled successfully!`
-Browser opens automatically at http://localhost:3000
+Opens automatically at **http://localhost:3000**.
 
-### Terminal 3 (Optional): Keep Ollama Running
+### 4. Use it
 
-Make sure Ollama is running in the background. You can check:
+Click a category, hit **Get Summary** on any article, and switch the language dropdown between **English** and **हिंदी**. First summary of a session is slower (the model has to load into memory); after that, repeats of the same article are served from cache instantly.
+
+---
+
+## Configuration
+
+### Backend (`backend/.env`)
+
+| Variable | Default | Notes |
+|---|---|---|
+| `PORT` | `5000` | Backend port |
+| `OLLAMA_URL` | `http://localhost:11434/api/generate` | Change if Ollama runs elsewhere |
+| `SUMMARIZE_MODEL` | `mistral` | Model used for summaries — see below |
+| `TRANSLATE_MODEL` | same as `SUMMARIZE_MODEL` | Model used for Hindi translation |
+| `SUMMARY_INPUT_LIMIT` | `240` | Characters of article text sent to the model per summary |
+
+### Frontend (`frontend/.env`, optional)
+
+| Variable | Default | Notes |
+|---|---|---|
+| `REACT_APP_API_URL` | `http://localhost:5000` | Point at a non-local backend (e.g. deployed) |
+
+### Choosing a model
+
+`mistral` (7B) is the highest-quality default, but it needs **~4–5GB of free RAM** to load. If summaries fail with a 500 and the backend log shows `model requires more system memory than is available`, your machine doesn't have that headroom — switch to something lighter:
+
 ```bash
-curl http://localhost:11434/api/tags
+ollama pull qwen2.5:1.5b
 ```
 
----
+```dotenv
+# backend/.env
+SUMMARIZE_MODEL=qwen2.5:1.5b
+TRANSLATE_MODEL=qwen2.5:1.5b
+```
 
-## 📱 How to Use
-
-1. Open http://localhost:3000 in your browser
-2. Click **"Refresh"** to fetch latest news
-3. Wait ~30-60 seconds for AI to summarize (first time is slower)
-4. Select **English** or **हिंदी** (Hindi) from language dropdown
-5. Read summaries & click "Read Full Article" to view original
+`qwen2.5:1.5b` needs well under 1.5GB and comfortably handles 6-line summaries and Hindi translation in a few seconds — this is the right default for laptops without a lot of spare RAM. `/api/health` reports live whether Ollama is reachable at all, but a model-too-large failure only shows up on an actual summarize call, so if summaries are the thing that's broken, that's the first thing to check.
 
 ---
 
-## 🎯 Features
+## API Reference
 
-✅ **Free & No Rate Limits** - Uses RSS feeds + local Ollama  
-✅ **AI Summaries** - Mistral AI summarizes each article  
-✅ **Hindi Translation** - Auto-translates summaries to Hindi  
-✅ **All News Categories** - Tech, Business, Security, General  
-✅ **Responsive Design** - Works on mobile, tablet, desktop  
-✅ **Real-time Updates** - Refresh anytime to get latest news  
-✅ **Always-on Thumbnails** - Missing images get a clean placeholder thumbnail  
-✅ **Text-to-Speech** - Speak summaries with one click  
+| Endpoint | Method | Description |
+|---|---|---|
+| `/api/news` | GET | Latest articles (60s cache; `?fresh=1` forces a refetch) |
+| `/api/summarize` | POST | `{ text, includeHindi? }` → `{ en, hi? }` 6-line summary |
+| `/api/translate` | POST | `{ text }` → `{ hi }` Hindi translation only (skips summarization) |
+| `/api/health` | GET | Backend status + live Ollama reachability |
 
----
-
-## 🛠️ Tech Stack
-
-| Component | Technology |
-|-----------|------------|
-| **Backend** | Node.js + Express |
-| **Frontend** | React + Tailwind CSS |
-| **AI** | Ollama + Mistral Model |
-| **News Source** | RSS Feeds (10+ sources) |
-| **Translation** | Ollama |
-
----
-
-## 📂 Project Structure
+## Project Structure
 
 ```
 ai-news-aggregator/
 ├── backend/
-│   ├── server.js          # Express server with API endpoints
-│   ├── package.json       # Dependencies
-│   └── node_modules/      # (auto-created after npm install)
-│
+│   ├── server.js          # Express app: RSS fetch, scoring, Ollama calls, caching
+│   ├── mock-news.json     # Fallback data if every RSS feed fails
+│   ├── .env.example
+│   └── package.json
 └── frontend/
     ├── src/
-    │   ├── App.js         # Main React component
-    │   ├── index.js       # React entry point
-    │   └── index.css      # Styles
-    ├── public/
-    │   └── index.html     # HTML template
-    ├── tailwind.config.js # Tailwind CSS config
-    ├── package.json       # Dependencies
-    └── node_modules/      # (auto-created after npm install)
+    │   ├── App.js          # All UI + client-side logic (search, compare, TTS, watch history)
+    │   ├── App.css / index.css
+    │   └── index.js
+    ├── public/index.html
+    ├── tailwind.config.js
+    └── package.json
 ```
 
 ---
 
-## 🔌 API Endpoints
+## Troubleshooting
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/news` | GET | Fetch latest news (cached ~60s; use `?fresh=1` to force refresh) |
-| `/api/summarize` | POST | Summarize custom text (use `includeHindi=false` to skip translation) |
-| `/api/translate` | POST | Translate text to Hindi (faster than re-summarizing) |
-| `/api/health` | GET | Check if backend is running |
+**Backend won't start**
+Check port 5000 is free (`netstat -ano | findstr :5000` on Windows) and that `npm install` ran in `backend/`.
 
----
+**"Failed to fetch" in the browser**
+Backend isn't running, or `REACT_APP_API_URL` points somewhere unreachable. Confirm with `curl http://localhost:5000/api/health`.
 
-## ⚠️ Troubleshooting
+**Summary/translate requests fail or time out**
+1. Confirm Ollama is actually running: `curl http://localhost:11434/api/tags`
+2. Check the backend console — it now surfaces the real Ollama error (not enough RAM, model not pulled, etc.) instead of a bare "status code 500"
+3. If it's a memory error, see [Choosing a model](#choosing-a-model)
 
-### Backend won't start
-- Check if port 5000 is free: `netstat -ano \| findstr :5000`
-- Make sure `npm install` was run in backend folder
-
-### Frontend shows "Failed to fetch"
-- Make sure backend is running on port 5000
-- Check if Ollama is running: http://localhost:11434
-
-### Summarization is slow
-- First run is slower (loading AI model)
-- Subsequent runs are faster
-- Using CPU (no GPU) = slower, consider upgrading RAM
-
-### News won't load
-- Check internet connection
-- Some RSS feeds might be down
-- Check backend console for errors
+**Some news categories look thin or a feed is missing**
+Individual RSS feeds occasionally go down; the backend logs failed feeds but keeps serving the rest. Check the backend console for `❌ Failed feeds`.
 
 ---
 
-## 📝 For College Submission
+## Roadmap
 
-This project demonstrates:
-- ✅ **Generative AI** - Using Ollama for summarization
-- ✅ **Natural Language Processing** - Text summarization & translation
-- ✅ **Full-Stack Development** - React frontend + Node.js backend
-- ✅ **API Integration** - RSS feeds + Ollama API
-- ✅ **Responsive Design** - Mobile-first UI
-- ✅ **Free & Scalable** - No paid APIs, can handle 1000+ articles
+- [ ] Persist articles/summaries in a database (currently in-memory, resets on restart)
+- [ ] Parallelize summarization instead of one Ollama call at a time
+- [ ] Sentiment analysis and topic clustering across the full article pool
+- [ ] User accounts + server-side personalization (today, "Trending" is local-only)
+- [ ] Deploy guide (Vercel/Railway for frontend+backend, plus a hosted Ollama alternative)
 
----
+## License
 
-## 🚀 Future Enhancements
-
-- Add database to store articles
-- Implement user preferences (favorite categories)
-- Add dark/light mode toggle
-- Deploy to cloud (Vercel, Railway)
-- Add more languages
-- Implement search functionality
-
----
-
-## 📞 Support
-
-If something breaks:
-1. Check the troubleshooting section
-2. Make sure all 3 terminals are running
-3. Restart Ollama and run npm install again
-4. Check console for error messages
-
----
-
-**Happy coding! 🎉**
+No license file is included yet — until one is added, all rights are reserved by default. If you intend to share or accept contributions on GitHub, add a `LICENSE` file (MIT is a common choice for a project like this).

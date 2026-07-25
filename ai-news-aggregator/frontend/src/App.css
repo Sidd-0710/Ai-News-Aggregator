@@ -19,12 +19,21 @@
 }
 
 article {
-  animation: fadeIn 0.5s ease-out;
+  animation: fadeIn 0.4s ease-out;
 }
 
-/* Glass morphism effect */
-.glass {
-  background: rgba(17, 24, 39, 0.8);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(168, 85, 247, 0.2);
+/* Subtle dot-grid texture for the header/hero band */
+.dot-grid {
+  background-image: radial-gradient(rgba(20, 19, 17, 0.16) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+/* Tactile brutalist click: shadow collapses as the element "presses" down */
+.hard-press {
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.hard-press:active {
+  transform: translate(3px, 3px);
+  box-shadow: none !important;
 }
