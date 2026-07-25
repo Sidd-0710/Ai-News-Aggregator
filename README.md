@@ -3,10 +3,10 @@
 **Signal** pulls live articles from 29 RSS feeds across 8 categories, scores each one for source credibility, and summarizes any article into 6 lines using a **locally-run AI model** (Ollama) — with one-click Hindi translation and text-to-speech. No paid APIs, no rate limits, no data leaving your machine.
 
 <p align="center">
-  <img src="docs/screenshots/feed.png" alt="Signal — article feed" width="100%" />
+  <img src="ai-news-aggregator/docs/screenshots/feed.png" alt="Signal — article feed" width="100%" />
 </p>
 <p align="center">
-  <img src="docs/screenshots/summary-modal.png" alt="Signal — AI summary modal" width="100%" />
+  <img src="ai-news-aggregator/docs/screenshots/summary-modal.png" alt="Signal — AI summary modal" width="100%" />
 </p>
 
 <p align="center">
